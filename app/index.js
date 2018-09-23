@@ -150,8 +150,6 @@ CoreCommandRouter.prototype.volumiosetvolume = function (VolumeInteger) {
 
 // Volumio Update Volume
 CoreCommandRouter.prototype.volumioupdatevolume = function (vol) {
-	console.log('AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA')
-	console.log(vol)
 	this.callCallback("volumioupdatevolume", vol);
 	return this.stateMachine.updateVolume(vol);
 };

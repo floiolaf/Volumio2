@@ -14,6 +14,7 @@ var maxvolume = '';
 var volumecurve = '';
 var volumesteps = '';
 var currentvolume = '';
+var hasHWMute = false;
 var currentmute = false;
 var premutevolume = '';
 var mixertype = '';
@@ -56,6 +57,7 @@ function CoreVolumeController(commandRouter) {
 	volumecurve = this.commandRouter.executeOnPlugin('audio_interface', 'alsa_controller', 'getConfigParam', 'volumecurvemode');
 	volumesteps = this.commandRouter.executeOnPlugin('audio_interface', 'alsa_controller', 'getConfigParam', 'volumesteps');
 	mixertype = this.commandRouter.executeOnPlugin('audio_interface', 'alsa_controller', 'getConfigParam', 'mixer_type');
+    //self.checkHWMute(mixer);
 
 
 	var amixer = function (args, cb) {
@@ -253,6 +255,7 @@ CoreVolumeController.prototype.updateVolumeSettings = function (data) {
 	volumesteps = data.volumesteps;
 	mixertype = data.mixertype
 	devicename = data.name;
+    //self.checkHWMute(mixer);
 
 	return self.retrievevolume();
 }
@@ -272,7 +275,7 @@ CoreVolumeController.prototype.alsavolume = function (VolumeInteger) {
 	var self = this;
 	var defer = libQ.defer();
 	self.logger.info('VolumeController::SetAlsaVolume' + VolumeInteger);
-
+    console.log('AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA '  + hasHWMute)
     if (mixertype === 'None') {
         Volume.vol = 100;
         Volume.mute = false;
@@ -428,3 +431,20 @@ CoreVolumeController.prototype.retrievevolume = function () {
 	}
 };
 
+//TODO Find a better way to find out if device supports muting
+CoreVolumeController.prototype.checkHWMute = function (mixerName) {
+    var self = this;
+
+    exec("amixer cget iface=MIXER,name='" + mixerName + "' | grep mute= | sed 's/^.*mute=/mute=/'", function (error, stdout, stderr) {
+        if (error) {
+            hasHWMute = false;
+        } else {
+            var output = stdout.replace('\n','');
+            if (output === 'mute=1') {
+                hasHWMute = true;
+            } else {
+                hasHWMute = false;
+            }
+        }
+    });
+};
