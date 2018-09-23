@@ -190,21 +190,21 @@ function CoreVolumeController(commandRouter) {
 		} else {
             //console.log('amixer -M set -c '+device + ' '+ mixer + ' '+val+'%')
             if (volumecurve === 'logarithmic') {
-                amixer(['-M', 'set', '-c', device, mixer, val + '%'], function (err) {
+                amixer(['-M', 'set', '-c', device, mixer, 'unmute', val + '%'], function (err) {
                     console.log(err)
                     cb(err);
                 });
                 if (devicename == 'PianoDACPlus'  || devicename == 'Allo Piano 2.1' || devicename == 'PianoDACPlus multicodec-0') {
-                    amixer(['-M', 'set', '-c', device, 'Subwoofer', val + '%'], function (err) {
+                    amixer(['-M', 'set', '-c', device, 'Subwoofer', 'unmute', val + '%'], function (err) {
 
                     });
                 }
             } else {
-                amixer(['set', '-c', device, mixer, val + '%'], function (err) {
+                amixer(['set', '-c', device, mixer, 'unmute', val + '%'], function (err) {
                     cb(err);
                 });
                 if (devicename == 'PianoDACPlus'  || devicename == 'Allo Piano 2.1' || devicename == 'PianoDACPlus multicodec-0') {
-                    amixer(['set', '-c', device, 'Subwoofer', val + '%'], function (err) {
+                    amixer(['set', '-c', device, 'Subwoofer', 'unmute', val + '%'], function (err) {
                        
                     });
                 }
@@ -281,8 +281,8 @@ CoreVolumeController.prototype.alsavolume = function (VolumeInteger) {
 				currentmute = true;
 				premutevolume = vol;
 
-				self.setVolume(0, function (err) {
-					Volume.vol = 0
+                self.setMuted(true, function (err) {
+					Volume.vol = premutevolume;
 					Volume.mute = true;
                     defer.resolve(Volume)
 				});
@@ -290,16 +290,15 @@ CoreVolumeController.prototype.alsavolume = function (VolumeInteger) {
 			break;
 		case 'unmute':
 			//Unmute
-					currentmute = false;
-					self.setVolume(premutevolume, function (err) {
-						self.logger.info('VolumeController::Volume ' + VolumeInteger);
-						//Log Volume Control
-						Volume.vol = premutevolume;
-						Volume.mute = false;
-						currentvolume = premutevolume;
-                        defer.resolve(Volume)
-
-					});
+			currentmute = false;
+			self.setVolume(premutevolume, function (err) {
+				self.logger.info('VolumeController::Volume ' + VolumeInteger);
+					//Log Volume Control
+					Volume.vol = premutevolume;
+					Volume.mute = false;
+					currentvolume = premutevolume;
+                    defer.resolve(Volume)
+				});
 			break;
 		case 'toggle':
 			// Mute or unmute, depending on current state
@@ -312,31 +311,29 @@ CoreVolumeController.prototype.alsavolume = function (VolumeInteger) {
 			break;
 		case '+':
 			//Increase volume by one (TEST ONLY FUNCTION - IN PRODUCTION USE A NUMERIC VALUE INSTEAD)
-			self.setMuted(false, function (err) {
-				self.getVolume(function (err, vol) {
-					if (vol == null) {
-						vol =  currentvolume;
-					}
-					VolumeInteger = Number(vol)+Number(volumesteps);
-					if (VolumeInteger > 100){
-						VolumeInteger = 100;
-					}
-					if (VolumeInteger > maxvolume){
-						VolumeInteger = maxvolume;
-					}
-					if (mixertype === 'None') {
-						VolumeInteger = 100;
-					}
-					self.setVolume(VolumeInteger, function (err) {
-						Volume.vol = VolumeInteger
-						Volume.mute = false;
-                        currentvolume = VolumeInteger;
-						self.logger.info('VolumeController::Volume ' + vol);
-                        defer.resolve(Volume)
+            self.getVolume(function (err, vol) {
+                if (vol == null) {
+                    vol =  currentvolume;
+                }
+                VolumeInteger = Number(vol)+Number(volumesteps);
+                if (VolumeInteger > 100){
+                    VolumeInteger = 100;
+                }
+                if (VolumeInteger > maxvolume){
+                    VolumeInteger = maxvolume;
+                }
+                if (mixertype === 'None') {
+                    VolumeInteger = 100;
+                }
+                self.setVolume(VolumeInteger, function (err) {
+                    Volume.vol = VolumeInteger
+                    Volume.mute = false;
+                    currentvolume = VolumeInteger;
+                    self.logger.info('VolumeController::Volume ' + vol);
+                    defer.resolve(Volume)
 
-					});
-				});
-			});
+                });
+            });
 			break;
 		case '-':
 			//Decrease volume by one (TEST ONLY FUNCTION - IN PRODUCTION USE A NUMERIC VALUE INSTEAD)
@@ -377,13 +374,13 @@ CoreVolumeController.prototype.alsavolume = function (VolumeInteger) {
 			if (mixertype === 'None') {
 				VolumeInteger = 100;
 			}
-				self.setVolume(VolumeInteger, function (err) {
-					self.logger.info('VolumeController::Volume ' + VolumeInteger);
-					//Log Volume Control
-					Volume.vol = VolumeInteger;
-					Volume.mute = false;
-					currentvolume = VolumeInteger;
-					defer.resolve(Volume)
+			self.setVolume(VolumeInteger, function (err) {
+				self.logger.info('VolumeController::Volume ' + VolumeInteger);
+				//Log Volume Control
+				Volume.vol = VolumeInteger;
+				Volume.mute = false;
+				currentvolume = VolumeInteger;
+				defer.resolve(Volume)
 			});
 	}
 
