@@ -253,6 +253,8 @@ CoreVolumeController.prototype.updateVolumeSettings = function (data) {
 	volumesteps = data.volumesteps;
 	mixertype = data.mixertype
 	devicename = data.name;
+
+	return self.retrievevolume();
 }
 
 CoreVolumeController.prototype.updateVolumeScript = function (data) {
@@ -271,145 +273,158 @@ CoreVolumeController.prototype.alsavolume = function (VolumeInteger) {
 	var defer = libQ.defer();
 	self.logger.info('VolumeController::SetAlsaVolume' + VolumeInteger);
 
-	switch (VolumeInteger) {
-		case 'mute':
-			//Mute 
-			self.getVolume(function (err, vol) {
-				if (vol == null) {
-					vol =  currentvolume
-				}
-				currentmute = true;
-				premutevolume = vol;
+    if (mixertype === 'None') {
+        Volume.vol = 100;
+        Volume.mute = false;
+        Volume.disableVolumeControl = true;
+        defer.resolve(Volume)
+    } else {
+        switch (VolumeInteger) {
+            case 'mute':
+                //Mute
+                self.getVolume(function (err, vol) {
+                    if (vol == null) {
+                        vol =  currentvolume
+                    }
+                    currentmute = true;
+                    premutevolume = vol;
 
-                self.setMuted(true, function (err) {
-					Volume.vol = premutevolume;
-					Volume.mute = true;
+                    self.setMuted(true, function (err) {
+                        Volume.vol = premutevolume;
+                        Volume.mute = true;
+                        Volume.disableVolumeControl = false;
+                        defer.resolve(Volume)
+                    });
+                });
+                break;
+            case 'unmute':
+                //Unmute
+                currentmute = false;
+                self.setVolume(premutevolume, function (err) {
+                    self.logger.info('VolumeController::Volume ' + VolumeInteger);
+                    //Log Volume Control
+                    Volume.vol = premutevolume;
+                    Volume.mute = false;
+                    Volume.disableVolumeControl = false;
+                    currentvolume = premutevolume;
                     defer.resolve(Volume)
-				});
-			});
-			break;
-		case 'unmute':
-			//Unmute
-			currentmute = false;
-			self.setVolume(premutevolume, function (err) {
-				self.logger.info('VolumeController::Volume ' + VolumeInteger);
-					//Log Volume Control
-					Volume.vol = premutevolume;
-					Volume.mute = false;
-					currentvolume = premutevolume;
-                    defer.resolve(Volume)
-				});
-			break;
-		case 'toggle':
-			// Mute or unmute, depending on current state
-			if (Volume.mute){
-				defer.resolve(self.alsavolume('unmute'));
-			}
-			else {
-				defer.resolve(self.alsavolume('mute'));
-			}
-			break;
-		case '+':
-			//Increase volume by one (TEST ONLY FUNCTION - IN PRODUCTION USE A NUMERIC VALUE INSTEAD)
-            self.getVolume(function (err, vol) {
-                if (vol == null) {
-                    vol =  currentvolume;
+                });
+                break;
+            case 'toggle':
+                // Mute or unmute, depending on current state
+                if (Volume.mute){
+                    defer.resolve(self.alsavolume('unmute'));
                 }
-                VolumeInteger = Number(vol)+Number(volumesteps);
+                else {
+                    defer.resolve(self.alsavolume('mute'));
+                }
+                break;
+            case '+':
+                //Increase volume by one (TEST ONLY FUNCTION - IN PRODUCTION USE A NUMERIC VALUE INSTEAD)
+                self.getVolume(function (err, vol) {
+                    if (vol == null) {
+                        vol =  currentvolume;
+                    }
+                    VolumeInteger = Number(vol)+Number(volumesteps);
+                    if (VolumeInteger > 100){
+                        VolumeInteger = 100;
+                    }
+                    if (VolumeInteger > maxvolume){
+                        VolumeInteger = maxvolume;
+                    }
+
+                    self.setVolume(VolumeInteger, function (err) {
+                        Volume.vol = VolumeInteger
+                        Volume.mute = false;
+                        Volume.disableVolumeControl = false;
+                        currentvolume = VolumeInteger;
+                        self.logger.info('VolumeController::Volume ' + vol);
+                        defer.resolve(Volume)
+                    });
+                });
+                break;
+            case '-':
+                //Decrease volume by one (TEST ONLY FUNCTION - IN PRODUCTION USE A NUMERIC VALUE INSTEAD)
+                self.getVolume(function (err, vol) {
+                    if (vol == null) {
+                        vol =  currentvolume
+                    }
+                    VolumeInteger = Number(vol)-Number(volumesteps);
+                    if (VolumeInteger < 0){
+                        VolumeInteger = 0;
+                    }
+                    if (VolumeInteger > maxvolume){
+                        VolumeInteger = maxvolume;
+                    }
+
+                    self.setVolume(VolumeInteger, function (err) {
+                        self.logger.info('VolumeController::Volume ' + vol);
+                        Volume.vol = VolumeInteger
+                        Volume.mute = false;
+                        Volume.disableVolumeControl = false;
+                        currentvolume = VolumeInteger;
+                        defer.resolve(Volume)
+                    });
+                });
+                break;
+            default:
+                // Set the volume with numeric value 0-100
+                if (VolumeInteger < 0){
+                    VolumeInteger = 0;
+                }
                 if (VolumeInteger > 100){
                     VolumeInteger = 100;
                 }
                 if (VolumeInteger > maxvolume){
                     VolumeInteger = maxvolume;
                 }
-                if (mixertype === 'None') {
-                    VolumeInteger = 100;
-                }
                 self.setVolume(VolumeInteger, function (err) {
-                    Volume.vol = VolumeInteger
+                    self.logger.info('VolumeController::Volume ' + VolumeInteger);
+                    //Log Volume Control
+                    Volume.vol = VolumeInteger;
                     Volume.mute = false;
+                    Volume.disableVolumeControl = false;
                     currentvolume = VolumeInteger;
-                    self.logger.info('VolumeController::Volume ' + vol);
                     defer.resolve(Volume)
-
                 });
-            });
-			break;
-		case '-':
-			//Decrease volume by one (TEST ONLY FUNCTION - IN PRODUCTION USE A NUMERIC VALUE INSTEAD)
-			self.getVolume(function (err, vol) {
-				if (vol == null) {
-					vol =  currentvolume
-				}
-				VolumeInteger = Number(vol)-Number(volumesteps);
-				if (VolumeInteger < 0){
-					VolumeInteger = 0;
-				}
-				if (VolumeInteger > maxvolume){
-					VolumeInteger = maxvolume;
-				}
-				if (mixertype === 'None') {
-					VolumeInteger = 100;
-				}
-				self.setVolume(VolumeInteger, function (err) {
-					self.logger.info('VolumeController::Volume ' + vol);
-					Volume.vol = VolumeInteger
-					Volume.mute = false;
-                    currentvolume = VolumeInteger;
-                    defer.resolve(Volume)
-				});
-			});
-			break;
-		default:
-			// Set the volume with numeric value 0-100
-			if (VolumeInteger < 0){
-				VolumeInteger = 0;
-			}
-			if (VolumeInteger > 100){
-				VolumeInteger = 100;
-			}
-			if (VolumeInteger > maxvolume){
-				VolumeInteger = maxvolume;
-			}
-			if (mixertype === 'None') {
-				VolumeInteger = 100;
-			}
-			self.setVolume(VolumeInteger, function (err) {
-				self.logger.info('VolumeController::Volume ' + VolumeInteger);
-				//Log Volume Control
-				Volume.vol = VolumeInteger;
-				Volume.mute = false;
-				currentvolume = VolumeInteger;
-				defer.resolve(Volume)
-			});
+        }
 	}
+
+
 
 	return defer.promise
 };
 
 CoreVolumeController.prototype.retrievevolume = function () {
 	var self = this;
-	this.getVolume(function (err, vol) {
-		self.getMuted(function (err, mute) {
-			//Log volume control
-			self.logger.info('VolumeController:: Volume=' + vol + ' Mute =' + mute);			
-                        if (vol == null) {
-                        vol = currentvolume,
+	if (mixertype === 'None') {
+        Volume.vol = 100;
+        Volume.mute = false;
+        Volume.disableVolumeControl = true;
+        return libQ.resolve(Volume)
+            .then(function (Volume) {
+                self.commandRouter.volumioupdatevolume(Volume);
+            });
+	} else {
+        this.getVolume(function (err, vol) {
+            self.getMuted(function (err, mute) {
+                //Log volume control
+                self.logger.info('VolumeController:: Volume=' + vol + ' Mute =' + mute);
+                if (vol == null) {
+                    vol = currentvolume,
                         mute = currentmute
-                        } else {
-                        currentvolume = vol
-                        }
-			Volume.vol = vol;
-			Volume.mute = mute;
-			if (mixertype === 'None') {
-				Volume.vol = 100;
-			}
-			return libQ.resolve(Volume)
-				.then(function (Volume) {
-					self.commandRouter.volumioupdatevolume(Volume);
-				});
-
-		});
-	});
+                } else {
+                    currentvolume = vol
+                }
+                Volume.vol = vol;
+                Volume.mute = mute;
+                Volume.disableVolumeControl = false;
+                return libQ.resolve(Volume)
+                    .then(function (Volume) {
+                        self.commandRouter.volumioupdatevolume(Volume);
+                    });
+            });
+        });
+	}
 };
 
